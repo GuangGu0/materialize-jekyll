@@ -1,16 +1,16 @@
 # Site settings
 
-author: Yourname
-email: example@email.com
+author: Guanggu0
+email: luqinet@qq.com
 twitter_username: twitter
 github_username:  github
 googleplus_username: google
 
-head-title: Your blog
-title: Your blog
+head-title: Redchess's Blog
+title: Redchess's Blog
 
-baseurl: "/materialize-jekyll"    # the subpath of your site, "/blog"
-url: ""
+baseurl: ""    # the subpath of your site, "/blog"
+url: "https://guanggu0.github.io"
 
 # footer 
 description: "I know that what I'm doing looks stupid, but I'm a big boy and really want to do this."
