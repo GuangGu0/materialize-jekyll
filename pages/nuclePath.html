@@ -1,0 +1,405 @@
+---
+layout: page
+title: 核合成路径模拟
+permalink: /nucle-path/
+---
+
+<!-- 引入 Tailwind（放在 body，避免与默认 head 重复） -->
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    /* 自定义过渡效果 */
+    .cell {
+        transition: all 0.3s ease;
+    }
+    /* 隐藏滚动条但保留功能 */
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+</style>
+
+<div class="bg-slate-50 font-sans text-slate-800 p-4 sm:p-8 min-h-screen flex flex-col items-center">
+  <div class="bg-white p-4 sm:p-8 rounded-xl w-full max-w-4xl shadow-xl flex flex-col items-center">
+      
+      <!-- Header -->
+      <div class="mb-6 text-center">
+          <h1 class="text-2xl font-bold flex items-center justify-center gap-2 text-slate-800">
+              <!-- Activity Icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              核合成路径模拟器
+          </h1>
+          <p class="text-slate-600 mt-2 text-sm max-w-xl mx-auto">
+              探索宇宙如何通过“走格子”制造重元素。观察不同环境下的合成路径与滴线边界的关系。
+          </p>
+      </div>
+
+      <!-- Controls -->
+      <div class="flex flex-wrap gap-4 mb-6 justify-center w-full">
+          <button id="btn-rp" onclick="startSimulation('rp')" class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm bg-white border border-red-200 text-red-700 hover:bg-red-50">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              rp-过程 (X射线暴)
+          </button>
+          <button id="btn-r" onclick="startSimulation('r')" class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm bg-white border border-blue-200 text-blue-700 hover:bg-blue-50">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/></svg>
+              r-过程 (超新星)
+          </button>
+          <button id="btn-s" onclick="startSimulation('s')" class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm bg-white border border-green-200 text-green-700 hover:bg-green-50">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              s-过程 (红巨星)
+          </button>
+          <button onclick="resetSimulation()" class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors shadow-sm" title="重置">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 12"/><path d="M3 5v7h7"/></svg>
+          </button>
+      </div>
+
+      <!-- Status Info Bar -->
+      <div class="w-full bg-white px-4 py-3 rounded-lg shadow-sm border border-slate-200 mb-4 flex items-center justify-between text-sm text-slate-500">
+          <span id="status-text">模拟状态: 等待开始</span>
+          <span id="rp-warning" class="text-red-600 text-xs bg-red-50 px-2 py-1 rounded hidden">关注红色质子滴线边界</span>
+      </div>
+
+      <!-- Grid Container -->
+      <div class="relative bg-white p-2 sm:p-4 rounded-lg shadow-inner border border-slate-300 overflow-auto w-full flex items-center justify-center min-h-[500px]">
+          
+          <!-- Axis Labels -->
+          <div class="absolute left-2 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-bold text-slate-400 tracking-widest pointer-events-none select-none">
+              质子数 Z (Protons) →
+          </div>
+          <div class="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs font-bold text-slate-400 tracking-widest pointer-events-none select-none">
+              中子数 N (Neutrons) →
+          </div>
+
+          <!-- Legend -->
+          <div class="absolute top-2 right-2 bg-white/95 p-2 rounded border text-[10px] space-y-1 shadow-md z-20 backdrop-blur-sm select-none">
+              <div class="flex items-center gap-2"><div class="w-3 h-3 bg-gray-800"></div> 稳定核</div>
+              <div class="flex items-center gap-2"><div class="w-3 h-3 bg-gray-200 border border-gray-400"></div> 不稳定核</div>
+              <div class="flex items-center gap-2"><div class="w-3 h-3 bg-red-50 border border-red-200"></div> 质子滴线外</div>
+              <div class="flex items-center gap-2"><div class="w-3 h-3 bg-yellow-400 ring-1 ring-black/20"></div> 当前位置</div>
+              <div class="flex items-center gap-2"><div class="w-3 h-1 bg-red-500"></div> 质子滴线边界</div>
+          </div>
+
+          <!-- Grid Content -->
+          <div id="nuclide-grid" class="flex flex-col gap-[1px] ml-6 mb-6">
+              <!-- Javascript will generate cells here -->
+          </div>
+      </div>
+
+      <div class="mt-6 text-xs text-slate-500 max-w-2xl text-center leading-relaxed">
+          *注：为了演示清晰，本图为简化示意的核素图区域。提示框跟随当前合成步骤移动。
+      </div>
+
+  </div>
+</div>
+
+<!-- JavaScript Logic -->
+<script>
+        // --- Constants & Config ---
+        const MAX_Z = 22;
+        const MAX_N = 26;
+        const CELL_SIZE = 24; // px
+        const SPEED = 800; // ms
+
+        // --- Paths Data ---
+        // rp-process: Rapid Proton Capture
+        const rpPath = [
+            { z: 10, n: 10, action: 'start', desc: '种子核 (稳定)' },
+            { z: 11, n: 10, action: 'p-capture', desc: '(p,γ) 俘获质子，向上' },
+            { z: 12, n: 10, action: 'p-capture', desc: '(p,γ) 再次俘获质子' },
+            { z: 13, n: 10, action: 'limit', desc: '⚠️ 到达质子滴线！(质子发射风险)' },
+            { z: 12, n: 11, action: 'beta-plus', desc: 'β+衰变 (向右下)' },
+            { z: 13, n: 11, action: 'p-capture', desc: '(p,γ) 再次俘获质子' },
+            { z: 14, n: 11, action: 'p-capture', desc: '(p,γ) 继续攀升' },
+            { z: 15, n: 11, action: 'limit', desc: '⛔ 再次撞墙 (等待点)' },
+            { z: 14, n: 12, action: 'beta-plus', desc: 'β+衰变 (绕过等待点)' },
+            { z: 15, n: 12, action: 'p-capture', desc: '(p,γ) 继续合成' },
+            { z: 16, n: 12, action: 'p-capture', desc: '(p,γ) 接近极限' },
+            { z: 17, n: 12, action: 'limit', desc: '⚠️ 到达质子滴线边界' },
+            { z: 16, n: 13, action: 'beta-plus', desc: 'β+衰变' },
+            { z: 17, n: 13, action: 'p-capture', desc: '(p,γ) 继续...' },
+            { z: 18, n: 13, action: 'p-capture', desc: '(p,γ) 生成更重元素' },
+        ];
+
+        // r-process: Rapid Neutron Capture
+        const rPath = [
+            { z: 10, n: 10, action: 'start', desc: '种子核 (稳定)' },
+            { z: 10, n: 11, action: 'n-capture', desc: '(n,γ) 俘获中子，向右' },
+            { z: 10, n: 12, action: 'n-capture', desc: '(n,γ) 中子流极强' },
+            { z: 10, n: 13, action: 'n-capture', desc: '(n,γ) 继续俘获' },
+            { z: 10, n: 14, action: 'n-capture', desc: '(n,γ) 远离稳定线' },
+            { z: 10, n: 15, action: 'n-capture', desc: '(n,γ) 到达中子滴线' },
+            { z: 11, n: 14, action: 'beta-minus', desc: 'β-衰变 (向左上)' },
+            { z: 11, n: 15, action: 'n-capture', desc: '(n,γ) 再次俘获中子' },
+            { z: 11, n: 16, action: 'n-capture', desc: '(n,γ) 继续俘获' },
+            { z: 11, n: 17, action: 'n-capture', desc: '(n,γ) 再次接近滴线' },
+            { z: 12, n: 16, action: 'beta-minus', desc: 'β-衰变' },
+            { z: 12, n: 17, action: 'n-capture', desc: '(n,γ) 继续...' },
+            { z: 12, n: 18, action: 'n-capture', desc: '(n,γ) 继续...' },
+        ];
+
+        // s-process: Slow Neutron Capture
+        const sPath = [
+            { z: 10, n: 10, action: 'start', desc: '种子核' },
+            { z: 10, n: 11, action: 'n-capture', desc: '(n,γ) 慢速俘获中子' },
+            { z: 10, n: 12, action: 'decay-check', desc: '不稳定' },
+            { z: 11, n: 11, action: 'beta-minus', desc: 'β-衰变 (回稳定谷)' },
+            { z: 11, n: 12, action: 'n-capture', desc: '(n,γ) 再次俘获' },
+            { z: 11, n: 13, action: 'decay-check', desc: '不稳定...' },
+            { z: 12, n: 12, action: 'beta-minus', desc: 'β-衰变' },
+            { z: 12, n: 13, action: 'n-capture', desc: '(n,γ) 沿谷底行走' },
+            { z: 12, n: 14, action: 'n-capture', desc: '(n,γ) 继续' },
+            { z: 13, n: 13, action: 'beta-minus', desc: 'β-衰变' },
+            { z: 13, n: 14, action: 'n-capture', desc: '形成重同位素' },
+            { z: 13, n: 15, action: 'n-capture', desc: '继续...' },
+            { z: 14, n: 14, action: 'beta-minus', desc: 'β-衰变' },
+        ];
+
+        // --- State ---
+        let state = {
+            activeProcess: null, // 'rp', 'r', 's', null
+            stepIndex: 0,
+            pathHistory: [], // Array of objects {z, n}
+            isPlaying: false,
+            intervalId: null
+        };
+
+        // --- Initialization ---
+        function initGrid() {
+            const gridEl = document.getElementById('nuclide-grid');
+            gridEl.innerHTML = '';
+
+            // Generate rows from MAX_Z down to 0
+            for (let z = MAX_Z; z >= 0; z--) {
+                const rowEl = document.createElement('div');
+                rowEl.className = 'flex';
+                
+                for (let n = 0; n <= MAX_N; n++) {
+                    const cell = createCell(z, n);
+                    rowEl.appendChild(cell);
+                }
+                gridEl.appendChild(rowEl);
+            }
+        }
+
+        function createCell(z, n) {
+            const type = getCellType(z, n);
+            const div = document.createElement('div');
+            div.id = `cell-${z}-${n}`;
+            div.className = `cell relative flex items-center justify-center text-[8px] sm:text-[10px] select-none`;
+            div.style.width = `${CELL_SIZE}px`;
+            div.style.height = `${CELL_SIZE}px`;
+
+            // Base Styling
+            if (type === 'empty') {
+                div.classList.add('invisible');
+            } else {
+                div.classList.add('border', 'border-gray-700/50');
+            }
+
+            // Colors based on type
+            if (type === 'stable') div.classList.add('bg-gray-800', 'text-white');
+            else if (type === 'unstable') div.classList.add('bg-gray-200', 'text-gray-500');
+            else if (type === 'proton-unbound') div.classList.add('bg-red-50/50', 'opacity-30');
+            else if (type === 'neutron-unbound') div.classList.add('bg-blue-50/50', 'opacity-30');
+
+            // Drip Line Border (Proton)
+            // If current is unstable and the one above (Z+1) is proton-unbound, draw a line
+            const typeAbove = getCellType(z + 1, n);
+            if (type === 'unstable' && typeAbove === 'proton-unbound') {
+                div.style.borderTop = '2px solid #ef4444';
+            }
+
+            // Stable dot
+            if (type === 'stable') {
+                const dot = document.createElement('div');
+                dot.className = 'w-1.5 h-1.5 rounded-full bg-gray-500';
+                div.appendChild(dot);
+            }
+
+            return div;
+        }
+
+        function getCellType(z, n) {
+            // Simplified Logic
+            if (z > MAX_Z + 1 || n > MAX_N + 1) return 'empty'; // Bounds check
+            
+            const stabilityCenter = z * 1.05;
+            const isStable = Math.abs(n - stabilityCenter) <= 1.2;
+            const isProtonDrip = z > n + 1;
+            const isNeutronDrip = n > z + 6;
+
+            if (z === 0 || n === 0) return 'empty';
+            if (isStable) return 'stable';
+            if (isProtonDrip) return 'proton-unbound';
+            if (isNeutronDrip) return 'neutron-unbound';
+            return 'unstable';
+        }
+
+        function getActionDescription(action) {
+            switch (action) {
+                case 'p-capture': return "+质子";
+                case 'n-capture': return "+中子";
+                case 'beta-plus': return "β+衰变";
+                case 'beta-minus': return "β-衰变";
+                case 'limit': return "阻断";
+                default: return "";
+            }
+        }
+
+        // --- Core Logic ---
+
+        function startSimulation(type) {
+            if (state.isPlaying && state.activeProcess === type) return; // Already running
+            resetSimulation();
+            
+            state.activeProcess = type;
+            state.isPlaying = true;
+            
+            // Update Buttons
+            updateButtonStyles(type);
+            
+            // Update Warning Text
+            const warningEl = document.getElementById('rp-warning');
+            if (type === 'rp') warningEl.classList.remove('hidden');
+            else warningEl.classList.add('hidden');
+
+            document.getElementById('status-text').innerText = '模拟状态: 运行中...';
+
+            // Start Loop
+            state.intervalId = setInterval(gameLoop, SPEED);
+            gameLoop(); // Run immediate first step
+        }
+
+        function resetSimulation() {
+            // Stop loop
+            if (state.intervalId) clearInterval(state.intervalId);
+            
+            state = {
+                activeProcess: null,
+                stepIndex: 0,
+                pathHistory: [],
+                isPlaying: false,
+                intervalId: null
+            };
+
+            // UI Reset
+            document.querySelectorAll('.cell').forEach(cell => {
+                // Remove dynamic classes
+                cell.classList.remove('bg-blue-200', '!text-blue-900', 'font-bold', 'shadow-inner');
+                cell.classList.remove('bg-yellow-400', '!text-black', 'scale-110', 'z-30', 'shadow-lg', 'ring-2', 'ring-yellow-200');
+                
+                // Remove tooltip
+                const tooltip = cell.querySelector('.tooltip-popup');
+                if (tooltip) tooltip.remove();
+                
+                // Remove coordinates label
+                const label = cell.querySelector('.coord-label');
+                if (label) label.remove();
+            });
+
+            updateButtonStyles(null);
+            document.getElementById('rp-warning').classList.add('hidden');
+            document.getElementById('status-text').innerText = '模拟状态: 已重置';
+        }
+
+        function gameLoop() {
+            let currentPath;
+            if (state.activeProcess === 'rp') currentPath = rpPath;
+            else if (state.activeProcess === 'r') currentPath = rPath;
+            else currentPath = sPath;
+
+            if (state.stepIndex >= currentPath.length) {
+                clearInterval(state.intervalId);
+                state.isPlaying = false;
+                document.getElementById('status-text').innerText = '模拟状态: 完成';
+                return;
+            }
+
+            const step = currentPath[state.stepIndex];
+            state.pathHistory.push({ z: step.z, n: step.n });
+            
+            renderStep(step);
+            
+            state.stepIndex++;
+        }
+
+        function renderStep(step) {
+            const { z, n, desc, action } = step;
+            const subMessage = getActionDescription(action);
+
+            // 1. Clean up previous highlight (make it history trail)
+            if (state.pathHistory.length > 1) {
+                const prev = state.pathHistory[state.pathHistory.length - 2];
+                const prevCell = document.getElementById(`cell-${prev.z}-${prev.n}`);
+                if (prevCell) {
+                    // Remove Active Styles
+                    prevCell.classList.remove('bg-yellow-400', '!text-black', 'scale-110', 'z-30', 'shadow-lg', 'ring-2', 'ring-yellow-200');
+                    // Remove Tooltip
+                    const oldTooltip = prevCell.querySelector('.tooltip-popup');
+                    if (oldTooltip) oldTooltip.remove();
+                    const oldLabel = prevCell.querySelector('.coord-label');
+                    if (oldLabel) oldLabel.remove();
+                    
+                    // Add Trail Styles
+                    prevCell.classList.add('bg-blue-200', '!text-blue-900', 'font-bold', 'shadow-inner');
+                }
+            }
+
+            // 2. Highlight Current Cell
+            const currentCell = document.getElementById(`cell-${z}-${n}`);
+            if (currentCell) {
+                currentCell.classList.add('bg-yellow-400', '!text-black', 'font-bold', 'scale-110', 'z-30', 'shadow-lg', 'ring-2', 'ring-yellow-200');
+
+                // Add Coordinate Label
+                const coordHtml = `<span class="coord-label absolute -top-6 bg-black text-white px-1 rounded text-xs whitespace-nowrap">Z:${z}, N:${n}</span>`;
+                currentCell.insertAdjacentHTML('beforeend', coordHtml);
+
+                // Add Tooltip
+                const tooltipHtml = `
+                    <div class="tooltip-popup absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white p-2 rounded-md shadow-xl z-50 pointer-events-none text-center min-w-[140px] border border-slate-700 backdrop-blur-sm">
+                         <div class="flex justify-between items-center text-[10px] text-slate-400 mb-1 border-b border-slate-700 pb-1">
+                            <span>Z:${z}, N:${n}</span>
+                            <span class="font-mono text-yellow-500">${subMessage}</span>
+                         </div>
+                         <div class="text-xs font-bold text-white leading-snug whitespace-normal">${desc}</div>
+                         <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900/95"></div>
+                    </div>
+                `;
+                currentCell.insertAdjacentHTML('beforeend', tooltipHtml);
+                
+                // Auto-scroll into view if needed (optional)
+                // currentCell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function updateButtonStyles(activeType) {
+            const btns = {
+                rp: document.getElementById('btn-rp'),
+                r: document.getElementById('btn-r'),
+                s: document.getElementById('btn-s')
+            };
+
+            // Reset all
+            Object.values(btns).forEach(btn => {
+                btn.className = "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm bg-white border hover:opacity-90";
+                if(btn.id === 'btn-rp') btn.classList.add('border-red-200', 'text-red-700', 'hover:bg-red-50');
+                if(btn.id === 'btn-r') btn.classList.add('border-blue-200', 'text-blue-700', 'hover:bg-blue-50');
+                if(btn.id === 'btn-s') btn.classList.add('border-green-200', 'text-green-700', 'hover:bg-green-50');
+            });
+
+            // Set Active
+            if (activeType === 'rp') {
+                btns.rp.className = "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm bg-red-600 text-white ring-2 ring-red-200 scale-105";
+            } else if (activeType === 'r') {
+                btns.r.className = "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm bg-blue-600 text-white ring-2 ring-blue-200 scale-105";
+            } else if (activeType === 's') {
+                btns.s.className = "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm bg-green-600 text-white ring-2 ring-green-200 scale-105";
+            }
+        }
+
+        // --- Run on Load ---
+        initGrid();
+
+    </script>
